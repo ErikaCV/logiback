@@ -1,5 +1,6 @@
 block vars
-  - var activeNav = ''
+  - var activeNav = typeof activeNav === 'undefined' ? '' : activeNav
+  - var currentUser = typeof currentUser === 'undefined' ? null : currentUser
 
 doctype html
 html(lang='es')
@@ -47,6 +48,29 @@ html(lang='es')
       nav.main-nav {
         margin-top: 1rem;
       }
+      .header-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      .user-session {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.95rem;
+      }
+      .user-name {
+        font-weight: 600;
+      }
+      .user-role {
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }
+      .logout-form {
+        margin: 0;
+      }
       nav.main-nav ul {
         list-style: none;
         margin: 0;
@@ -54,6 +78,17 @@ html(lang='es')
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
+      }
+      nav.auth-nav ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        gap: 0.75rem;
+      }
+      nav.auth-nav a {
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 600;
       }
       nav.main-nav a {
         display: inline-flex;
@@ -361,17 +396,31 @@ html(lang='es')
       }
   body
     header.app-header
-      h1.brand LogiFlow - Grupo 14
-      nav.main-nav
-        ul
-          li: a(href='/views', aria-current=activeNav === 'home' ? 'page' : undefined) Inicio
-          li: a(href='/views/customers', aria-current=activeNav === 'customers' ? 'page' : undefined) Clientes
-          li: a(href='/views/orders', aria-current=activeNav === 'orders' ? 'page' : undefined) Pedidos
-          li: a(href='/views/products', aria-current=activeNav === 'products' ? 'page' : undefined) Productos
-          li: a(href='/views/warehouses', aria-current=activeNav === 'warehouses' ? 'page' : undefined) Depositos
-          li: a(href='/views/shipments', aria-current=activeNav === 'shipments' ? 'page' : undefined) Envios
-          li: a(href='/views/invoices', aria-current=activeNav === 'invoices' ? 'page' : undefined) Facturas
-          li: a(href='/views/stock', aria-current=activeNav === 'stock' ? 'page' : undefined) Stock
+      .header-meta
+        h1.brand LogiFlow - Grupo 14
+        if currentUser
+          .user-session
+            span.user-name= currentUser.name || currentUser.email
+            if currentUser.role
+              span.user-role= currentUser.role
+            form.logout-form(method='post', action='/auth/logout')
+              button.btn.btn-secondary(type='submit') Cerrar sesión
+        else
+          nav.auth-nav
+            ul
+              li: a(href='/auth/login') Iniciar sesión
+              li: a(href='/auth/signup') Crear cuenta
+      if currentUser
+        nav.main-nav
+          ul
+            li: a(href='/views', aria-current=activeNav === 'home' ? 'page' : undefined) Inicio
+            li: a(href='/views/customers', aria-current=activeNav === 'customers' ? 'page' : undefined) Clientes
+            li: a(href='/views/orders', aria-current=activeNav === 'orders' ? 'page' : undefined) Pedidos
+            li: a(href='/views/products', aria-current=activeNav === 'products' ? 'page' : undefined) Productos
+            li: a(href='/views/warehouses', aria-current=activeNav === 'warehouses' ? 'page' : undefined) Depositos
+            li: a(href='/views/shipments', aria-current=activeNav === 'shipments' ? 'page' : undefined) Envios
+            li: a(href='/views/invoices', aria-current=activeNav === 'invoices' ? 'page' : undefined) Facturas
+            li: a(href='/views/stock', aria-current=activeNav === 'stock' ? 'page' : undefined) Stock
     main.content
       if flashMessages
         .flash-container

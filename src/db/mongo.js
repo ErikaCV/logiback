@@ -28,6 +28,13 @@ function getDb() {
   return database;
 }
 
+function getClient() {
+  if (!client) {
+    throw new Error("MongoDB client has not been initialized. Call connect() first.");
+  }
+  return client;
+}
+
 function getCollection(name) {
   return getDb().collection(name);
 }
@@ -81,12 +88,15 @@ async function ensureIndexes() {
     db.collection("shipments").createIndex({ orderId: 1 }),
     db.collection("invoices").createIndex({ id: 1 }, { unique: true }),
     db.collection("invoices").createIndex({ orderId: 1 }, { unique: true }),
+    db.collection("users").createIndex({ id: 1 }, { unique: true }),
+    db.collection("users").createIndex({ email: 1 }, { unique: true }),
   ]);
 }
 
 module.exports = {
   connect,
   disconnect,
+  getClient,
   getDb,
   getCollection,
   getNextSequence,

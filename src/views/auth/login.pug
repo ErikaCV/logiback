@@ -1,0 +1,33 @@
+extends ../layout
+
+block vars
+  - var activeNav = 'auth-login'
+
+block content
+  h2.section-title Acceso
+
+  .card
+    h3 Iniciar sesión
+    form.form-grid(method='post', action='/auth/login')
+      if formValues && formValues.next
+        input(type='hidden', name='next', value=formValues.next)
+      .form-field
+        label(for='login-email') Correo
+        input#login-email(type='email', name='email', required, autocomplete='email', value=formValues && formValues.email ? formValues.email : '')
+      .form-field
+        label(for='login-password') Contraseña
+        input#login-password(type='password', name='password', required, autocomplete='current-password')
+      .form-actions
+        button.btn.btn-primary(type='submit') Entrar
+        a.btn.btn-secondary(href='/auth/signup') Crear cuenta
+    if formErrors && formErrors.length
+      ul.form-errors
+        each err in formErrors
+          li= err
+
+  .card
+    p ¿Sos nuevo en la plataforma?
+    p
+      | Podés 
+      a(href='/auth/signup') crear una cuenta
+      |  y comenzar a gestionar clientes, pedidos y stock.
