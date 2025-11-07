@@ -1,0 +1,38 @@
+extends ../layout
+
+block vars
+  - var activeNav = 'auth-signup'
+
+block content
+  h2.section-title Crear cuenta
+
+  .card
+    h3 Registrate en LogiFlow
+    form.form-grid(method='post', action='/auth/signup')
+      if formValues && formValues.next
+        input(type='hidden', name='next', value=formValues.next)
+      .form-field
+        label(for='signup-name') Nombre
+        input#signup-name(type='text', name='name', required, autocomplete='name', value=formValues && formValues.name ? formValues.name : '')
+      .form-field
+        label(for='signup-email') Correo
+        input#signup-email(type='email', name='email', required, autocomplete='email', value=formValues && formValues.email ? formValues.email : '')
+      .form-field
+        label(for='signup-password') Contraseña
+        input#signup-password(type='password', name='password', required, minlength='6', autocomplete='new-password')
+      .form-field
+        label(for='signup-confirm') Confirmar contraseña
+        input#signup-confirm(type='password', name='passwordConfirm', required, minlength='6', autocomplete='new-password')
+      .form-actions
+        button.btn.btn-primary(type='submit') Crear cuenta
+        a.btn.btn-secondary(href='/auth/login') Ya tengo una cuenta
+    if formErrors && formErrors.length
+      ul.form-errors
+        each err in formErrors
+          li= err
+
+  .card
+    p
+      | ¿Ya estás registrado? 
+      a(href='/auth/login') Inicia sesión
+      |  con tus credenciales.

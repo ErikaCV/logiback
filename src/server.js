@@ -1,7 +1,15 @@
 require("dotenv").config();
 const express = require("express");
 const path = require("path");
-const { connect } = require("./db/mongo");
+const session = require("express-session");
+const MongoStore = require("connect-mongo");
+const passport = require("./config/passport");
+const { connect, getClient } = require("./db/mongo");
+const {
+  attachCurrentUser,
+  ensureSessionAuth,
+  requireJwtAuth,
+} = require("./middleware/auth");
 
 const app = express();
 
@@ -26,19 +34,48 @@ app.use((req, res, next) => {
   ensureDb().then(() => next()).catch(next);
 });
 
+const mongoDbName = process.env.MONGODB_DB || "logiflow";
+const sessionSecret = process.env.SESSION_SECRET || "logiflow-dev-secret";
+const isProduction = process.env.NODE_ENV === "production";
+const sessionStore = MongoStore.create({
+  clientPromise: ensureDb().then(() => getClient()),
+  dbName: mongoDbName,
+  collectionName: "sessions",
+});
+
+app.use(
+  session({
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    store: sessionStore,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProduction,
+      maxAge: 1000 * 60 * 60 * 8, // 8h
+    },
+  })
+);
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(attachCurrentUser);
+
 app.get("/", (req, res) => {
   return res.status(200).json({ ok: true, name: "logiflow-mvp" });
 });
 
-app.use("/views", require("./modules/views.routes"));
+app.use("/auth", require("./modules/auth.routes"));
 
-app.use("/customers", require("./modules/customers.routes"));
-app.use("/products", require("./modules/products.routes"));
-app.use("/warehouses", require("./modules/warehouses.routes"));
-app.use("/stock", require("./modules/stock.routes"));
-app.use("/orders", require("./modules/orders.routes"));
-app.use("/shipments", require("./modules/shipments.routes"));
-app.use("/invoices", require("./modules/invoices.routes"));
+app.use("/views", ensureSessionAuth, require("./modules/views.routes"));
+
+app.use("/customers", requireJwtAuth, require("./modules/customers.routes"));
+app.use("/products", requireJwtAuth, require("./modules/products.routes"));
+app.use("/warehouses", requireJwtAuth, require("./modules/warehouses.routes"));
+app.use("/stock", requireJwtAuth, require("./modules/stock.routes"));
+app.use("/orders", requireJwtAuth, require("./modules/orders.routes"));
+app.use("/shipments", requireJwtAuth, require("./modules/shipments.routes"));
+app.use("/invoices", requireJwtAuth, require("./modules/invoices.routes"));
 
 app.use((req, res, next) => {
   return res.status(404).json({ message: "Not Found" });

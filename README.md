@@ -6,6 +6,7 @@ Aplicación Node.js/Express para la gestión logística del MVP "Logiflow". Perm
 
 - API REST modular (clientes, productos, depósitos, stock, pedidos, envíos, facturas).
 - Panel web en Express + Pug para operaciones manuales.
+- Autenticación integrada (Passport + sesiones para las vistas y JWT para la API).
 - Persistencia en **MongoDB** usando el driver oficial.
 - Secuencias por colección (`counters`) para IDs incrementales.
 - Validaciones y reglas de negocio encapsuladas en servicios.
@@ -28,10 +29,14 @@ Aplicación Node.js/Express para la gestión logística del MVP "Logiflow". Perm
    MONGODB_URI="mongodb+srv://usuario:password@cluster.mongodb.net/?retryWrites=true&w=majority"
    MONGODB_DB="logiflow"
    PORT="3000"
+   SESSION_SECRET="cambia-esto"
+   JWT_SECRET="otra-clave-secreta"
    ```
    - `MONGODB_URI`: connection string completa de tu cluster.
    - `MONGODB_DB`: nombre de la base (por defecto se usa `logiflow`).
    - `PORT`: puerto HTTP para Express (default `3000`).
+   - `SESSION_SECRET`: clave para firmar la cookie de sesión utilizada por Passport.
+   - `JWT_SECRET`: clave para firmar los tokens emitidos por `/auth/api`.
 
 > **Nota:** antes de la migración a MongoDB la persistencia se hacía en un archivo `db.json`. Ese archivo se conserva como snapshot y ahora se usa para importar datos al cluster.
 
@@ -60,6 +65,7 @@ La aplicación expone:
 
 - API JSON bajo `/customers`, `/products`, `/warehouses`, `/stock`, `/orders`, `/shipments`, `/invoices` (CRUD y endpoints específicos según cada dominio).
 - Vistas HTML bajo `/views` (ej. `http://localhost:3000/views/customers`).
+- Autenticación de usuarios en `/auth/login` y `/auth/signup` (sesiones) y endpoints JWT en `/auth/api/login` y `/auth/api/signup`.
 
 Para desarrollo podés usar nodemon u otra herramienta que reinicie el proceso si lo preferís.
 
