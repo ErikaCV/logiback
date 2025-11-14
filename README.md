@@ -1,59 +1,70 @@
 # Logiflow MVP
 
-Aplicación Node.js/Express para la gestión logística del MVP "Logiflow". Permite administrar clientes, productos, depósitos, stock, pedidos, envíos y facturas desde una API REST y una interfaz web (Pug).
+Aplicación Node.js/Express para gestionar el flujo logístico del MVP “Logiflow”. Expone una API JSON protegida con JWT y un panel web en Pug con sesiones Passport para operar clientes, productos, depósitos, stock, pedidos, envíos e invoices.
 
-## Características
+## Tabla de contenidos
+- [Stack y características](#stack-y-características)
+- [Requerimientos](#requerimientos)
+- [Instalación rápida](#instalación-rápida)
+- [Configuración](#configuración)
+- [Ejecución](#ejecución)
+- [Autenticación](#autenticación)
+- [Dominios disponibles](#dominios-disponibles)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Base de datos y scripts](#base-de-datos-y-scripts)
+- [Validación / pruebas](#validación--pruebas)
+- [Despliegue](#despliegue)
+- [Recursos adicionales](#recursos-adicionales)
 
-- API REST modular (clientes, productos, depósitos, stock, pedidos, envíos, facturas).
-- Panel web en Express + Pug para operaciones manuales.
-- Autenticación integrada (Passport + sesiones para las vistas y JWT para la API).
-- Persistencia en **MongoDB** usando el driver oficial.
-- Secuencias por colección (`counters`) para IDs incrementales.
-- Validaciones y reglas de negocio encapsuladas en servicios.
-- Script de importación desde `db.json` (compatibilidad con los datos históricos).
+## Stack y características
+- Node.js 18+, Express 4 y MongoDB driver 6.13 con helpers propios de conexión.
+- API REST modular (clientes, productos, depósitos, stock, pedidos, envíos, facturas) con validaciones en servicios.
+- Panel administrativo en Express + Pug consumiendo los mismos modelos.
+- Autenticación híbrida: sesiones Passport (vistas) y JWT Bearer (API JSON).
+- Secuencias por colección (`counters`) para IDs enteros y únicos.
+- Middlewares personalizados para control de acceso, manejo de errores y sanitización.
+- Scripts utilitarios para importar datos históricos (`db.json`) y actualizar roles.
 
-## Requisitos
+## Requerimientos
+- Node.js >= 18 (el driver de Mongo requiere >=16.20.1, se recomienda 18 LTS).
+- Instancia MongoDB accesible (Atlas o local).
+- npm 9+ (instalado junto con Node.js).
 
-- Node.js 18+ (el driver de Mongo 6.13 requiere >=16.20.1; se recomienda 18 LTS o superior).
-- Cuenta/cluster en MongoDB Atlas u otro MongoDB accesible.
+## Instalación rápida
+```bash
+git clone <repo>
+cd tpback
+npm install
+```
 
 ## Configuración
-
-1. Clonar o descargar el proyecto.
-2. Instalar dependencias:
-   ```bash
-   npm install
-   ```
-3. Crear un archivo `.env` en la raíz con las variables necesarias (ejemplo):
-   ```env
-   MONGODB_URI="mongodb+srv://usuario:password@cluster.mongodb.net/?retryWrites=true&w=majority"
-   MONGODB_DB="logiflow"
-   PORT="3000"
-   SESSION_SECRET="cambia-esto"
-   JWT_SECRET="otra-clave-secreta"
-   ```
-   - `MONGODB_URI`: connection string completa de tu cluster.
-   - `MONGODB_DB`: nombre de la base (por defecto se usa `logiflow`).
-   - `PORT`: puerto HTTP para Express (default `3000`).
-   - `SESSION_SECRET`: clave para firmar la cookie de sesión utilizada por Passport.
-   - `JWT_SECRET`: clave para firmar los tokens emitidos por `/auth/api`.
-
-> **Nota:** antes de la migración a MongoDB la persistencia se hacía en un archivo `db.json`. Ese archivo se conserva como snapshot y ahora se usa para importar datos al cluster.
-
-## Importar datos desde `db.json`
-
-Si querés volcar el contenido histórico del archivo `db.json` a tu base Mongo:
-```bash
-npm run seed
+Crear un archivo `.env` en la raíz:
+```env
+MONGODB_URI="mongodb+srv://gonzaloalejandro720_db_user:xIXLd3HBu7r8aEh7@logiflowcluster.pp6rzqc.mongodb.net/?retryWrites=true&w=majority&appName=LogiFlowCluster"
+MONGODB_DB="logiflow"
+PORT="3000"
+SESSION_SECRET="3cb351946ebeca65855fdcd6c273e84e1e97a9797594d959503e743386c01106"
+JWT_SECRET="7ff116a4b70498e518a30a5f72176875dfdf4125c6cf0f36c75cff367dc49825"
+BCRYPT_SALT_ROUNDS="10"
 ```
-El script `scripts/seed-from-json.js` lee `db.json`, reemplaza el contenido de las colecciones principales (`customers`, `products`, `warehouses`, `stock`, `orders`, `shipments`, `invoices`) y actualiza la colección `counters` para respetar los IDs secuenciales.
+
+| Variable         | Obligatoria | Descripción                                               |
+| ---------------- | ----------- | --------------------------------------------------------- |
+| `MONGODB_URI`    | Sí          | Cadena de conexión completa al cluster/instancia.         |
+| `MONGODB_DB`     | Sí          | Base de datos a utilizar (por defecto `logiflow`).        |
+| `PORT`           | No          | Puerto HTTP (3000 por defecto).                           |
+| `SESSION_SECRET` | Sí          | Firma de `express-session`/Passport.                      |
+| `JWT_SECRET`     | Sí          | Firma de los tokens emitidos por `/auth/api/*`.           |
+| `JWT_EXPIRES_IN` | No          | Tiempo de expiración de los JWT (formato `ms`, `1h`, etc).|
+| `BCRYPT_SALT_ROUNDS` | No      | Rondas para hasheo de contraseñas (default 10).           |
 
 ## Ejecución
-
 ```bash
-npm start
+npm start          # inicia servidor Express
+# o
+npm run dev        # mismo comando, útil para usar con nodemon
 ```
-Al iniciarse verás en consola algo como:
+Al levantar verás en consola:
 ```
 API on http://localhost:3000
 *********************************
@@ -61,71 +72,86 @@ API on http://localhost:3000
 *********************************
 ```
 
-La aplicación expone:
+## Autenticación
+- **Método 1 – Sesiones + Passport**: protege las vistas bajo `/views`. Los usuarios inician sesión vía `/auth/login` (HTML) y la cookie `connect.sid` se almacena en MongoDB (colección `sessions`). Middleware: `ensureSessionAuth`.
+- **Método 2 – JWT**: protege la API JSON bajo `/customers`, `/products`, `/stock`, etc. Los tokens se obtienen en `/auth/api/login` o `/auth/api/signup` y deben enviarse en `Authorization: Bearer <token>`. Middleware: `requireJwtAuth`.
 
-- API JSON bajo `/customers`, `/products`, `/warehouses`, `/stock`, `/orders`, `/shipments`, `/invoices` (CRUD y endpoints específicos según cada dominio).
-- Vistas HTML bajo `/views` (ej. `http://localhost:3000/views/customers`).
-- Autenticación de usuarios en `/auth/login` y `/auth/signup` (sesiones) y endpoints JWT en `/auth/api/login` y `/auth/api/signup`.
+Ambos mecanismos comparten el modelo `users` y el servicio `auth` (`bcrypt` para hash y `jsonwebtoken` para emitir/verificar).
 
-Para desarrollo podés usar nodemon u otra herramienta que reinicie el proceso si lo preferís.
+## Dominios disponibles
+- **Clientes (`/customers`)**: CRUD con soft-delete, búsqueda paginada y consulta de pedidos asociados.
+- **Productos (`/products`)**: CRUD, precios en centavos, activación/desactivación.
+- **Depósitos (`/warehouses`)**: Gestión básica y validaciones contra stock.
+- **Stock (`/stock`)**: Ajustes y transferencias (`/adjust`, `/move`) con verificación de disponibilidad.
+- **Pedidos (`/orders`)**: Reserva de stock, cálculo de totales y estados (`allocated`, `shipped`, `delivered`, `cancelled`).
+- **Envíos (`/shipments`)**: Creación desde pedidos reservados, tracking y cambios de estado permitidos.
+- **Facturas (`/invoices`)**: Generación para pedidos entregados y transición de estados (`issued`, `paid`, `void`).
+- **Vistas (`/views/*`)**: Panel en Pug para operar manualmente cada dominio.
 
-## Estructura principal
+La documentación funcional rápida se detalla en [Endpoints principales](#endpoints-principales-resumen); ver más abajo la estructura y servicios involucrados.
 
-```
-src/
-  controllers/   → controladores Express por dominio
-  models/        → acceso a datos (MongoDB) y operaciones de persistencia
-  services/      → lógica de negocio y validaciones adicionales
-  modules/       → rutas de la interfaz Pug y rutas API agrupadas
-  views/         → templates Pug
-  utils/         → helpers de validación y manejo de errores
-  db/mongo.js    → conexión y helpers para MongoDB
-scripts/
-  seed-from-json.js → importador desde db.json
-docs/
-  mongodb.md     → guía rápida de configuración
-```
-
-## Testing / validación
-
-Actualmente no hay tests automatizados. Se recomienda verificar manualmente:
-
-- `/customers` (alta/listado/edición/baja).
-- `/products` y `/stock` (ajustes y transferencias deben afectar el inventario).
-- Flujo pedido → envío → factura (`/orders`, `/shipments`, `/invoices`).
-
-## Migración de JSON a MongoDB
-
-La implementación original guardaba la información en `db.json` mediante un módulo in-memory. La migración consistió en:
-
-- Reemplazar el módulo `src/db/memory.js` por `src/db/mongo.js`.
-- Actualizar modelos para usar colecciones Mongo, operaciones asíncronas y un contador global de IDs.
-- Adaptar servicios/controladores para trabajar con las nuevas funciones asíncronas.
-- Ajustar las vistas Pug para leer desde Mongo en cada render.
-- Añadir `dotenv` para cargar configuración desde `.env`.
-
-Esto permite escalar la persistencia sin sacrificar la lógica de negocio existente, preservando la posibilidad de importar/exportar datos del viejo archivo JSON.
-
-## Endpoints principales (resumen)
-
+### Endpoints principales (resumen)
 - `GET /customers` – lista clientes activos.
 - `POST /customers` – crea nuevo cliente.
 - `PATCH /customers/:id` – actualiza datos básicos.
 - `DELETE /customers/:id` – baja lógica (bloquea y marca `deletedAt`).
-- `GET /products` / `POST /products` / `PATCH /products/:id` / `DELETE /products/:id`.
-- `POST /stock/adjust` – ajusta inventario (JSON API); equivalente en vistas.
-- `POST /stock/move` – transfiere stock entre depósitos.
-- `POST /orders` – crea pedido, descuenta stock, valida disponibilidad.
-- `PATCH /orders/:id` – modifica items (solo cuando está `allocated`).
-- `DELETE /orders/:id` – cancela pedido (devuelve stock).
-- `POST /shipments` – crea envío a partir de un pedido `allocated`.
-- `POST /shipments/:id/status` – actualiza estado con tracking.
-- `POST /shipments/:id/cancel` – revierte envío y regresa pedido a `allocated`.
-- `POST /invoices` – genera factura para pedidos entregados.
-- `POST /invoices/:id/status` – cambia estado (`issued`, `paid`, `void`).
+- `GET /products`, `POST /products`, `PATCH /products/:id`, `DELETE /products/:id`.
+- `POST /stock/adjust` – ajusta inventario; `POST /stock/move` – transfiere entre depósitos.
+- `POST /orders` – crea pedido validando stock; `PATCH /orders/:id` – edita items cuando está `allocated`; `DELETE /orders/:id` – cancela y devuelve stock.
+- `POST /shipments` – genera envío desde pedido `allocated`; `PATCH /shipments/:id/status` – actualiza tracking; `DELETE /shipments/:id` – cancela.
+- `POST /invoices` – factura pedidos entregados; `PATCH /invoices/:id/status` – cambia estado (`issued`, `paid`, `void`).
 
-## Producción / despliegue
+## Estructura del proyecto
+```
+src/
+  controllers/   → lógica HTTP (traduce servicios a responses)
+  models/        → acceso a MongoDB y operaciones de persistencia
+  services/      → reglas de negocio (pedidos, envíos, invoices, auth)
+  modules/       → routers Express (API y vistas)
+  middleware/    → middlewares personalizados (auth, errores)
+  utils/         → helpers (validaciones, httpError, etc.)
+  views/         → templates Pug del panel
+  config/passport.js → estrategia local + serialize/deserialize
+  db/mongo.js    → conexión, índices e IDs secuenciales
+scripts/
+  seed-from-json.js      → importa datos históricos desde `db.json`
+  update-user-roles.js   → normaliza roles existentes
+docs/
+  mongodb.md             → guía abreviada de conexión/configuración
+db.json                  → snapshot histórico utilizado por el seed
+```
 
-- Configurar variables de entorno en el host (MONGODB_URI, MONGODB_DB, PORT).
-- Ejecutar `npm install` y `npm run seed` si se requiere importar datos base.
-- Iniciar con `npm start` o usar un process manager (PM2, systemd, etc.).
+## Base de datos y scripts
+- **Persistencia actual**: MongoDB (Atlas/local). Se generan índices para evitar duplicados (`customers.email`, `products.sku`, etc.) y se mantiene la colección `counters` para ID incrementales.
+- **Importar datos históricos**:
+  ```bash
+  npm run seed
+  # ó configurando variables ad-hoc
+  MONGODB_URI="..." MONGODB_DB="logiflow" node scripts/seed-from-json.js
+  ```
+  El script borra y repone las colecciones `customers`, `products`, `warehouses`, `stock`, `orders`, `shipments`, `invoices` y actualiza `counters`.
+- **Actualizar roles heredados**:
+  ```bash
+  node scripts/update-user-roles.js --all
+  node scripts/update-user-roles.js --email=usuario@dominio.com
+  ```
+  Útil después de migraciones antiguas que dejaban `role: "operator"`.
+
+## Validación / pruebas
+No hay pruebas automatizadas por el momento. Se recomienda cubrir manualmente:
+- Alta/edición/baja de clientes y productos.
+- Ajustes y transferencias de stock.
+- Flujo completo pedido → envío → factura (incluyendo transiciones inválidas).
+- Login HTML con Passport y login API con JWT para asegurar ambos métodos de autenticación.
+
+## Despliegue
+1. Configurar variables de entorno en el host o servicio (Docker, PM2, systemd, etc.).
+2. Ejecutar `npm install`.
+3. Opcional: importar datos base con `npm run seed`.
+4. Iniciar con `npm start` o usar un process manager (`pm2 start src/server.js`).
+5. Cuando se despliega detrás de un proxy TLS, mantener `app.set("trust proxy", 1)` (ya incluido) para que las cookies `secure` funcionen correctamente.
+
+## Recursos adicionales
+- `docs/mongodb.md`: guía paso a paso para preparar la conexión a MongoDB y ejecutar el seed.
+- `db.json`: dataset histórico (solo lectura) usado por el script de importación.
+- Issues y mejoras pendientes: habilitar pruebas automatizadas, ampliar documentación de endpoints y añadir ejemplos de requests/responses.
