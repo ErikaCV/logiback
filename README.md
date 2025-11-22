@@ -151,6 +151,16 @@ No hay pruebas automatizadas por el momento. Se recomienda cubrir manualmente:
 4. Iniciar con `npm start` o usar un process manager (`pm2 start src/server.js`).
 5. Cuando se despliega detrás de un proxy TLS, mantener `app.set("trust proxy", 1)` (ya incluido) para que las cookies `secure` funcionen correctamente.
 
+### Despliegue en Vercel / entornos serverless
+- `src/server.js` exporta la instancia Express (`module.exports = app`) y sólo ejecuta `app.listen` cuando el archivo es el entrypoint principal. Esto permite que Vercel importe la app desde un handler (`api/index.js`) como se muestra abajo:
+  ```js
+  // api/index.js
+  const app = require("../src/server");
+  module.exports = app; // Vercel envía cada request a Express
+  ```
+- La conexión a MongoDB es perezosa (`ensureDb()` + `dbInitPromise`), por lo que cada función serverless reutiliza el cliente global y evita abrir sockets por invocación (commit `b703232`).
+- Al igual que en otros entornos, asegurate de definir `MONGODB_URI`, `MONGODB_DB`, `SESSION_SECRET` y `JWT_SECRET` como Environment Variables dentro del proyecto de Vercel.
+
 ## Recursos adicionales
 - `docs/mongodb.md`: guía paso a paso para preparar la conexión a MongoDB y ejecutar el seed.
 - `db.json`: dataset histórico (solo lectura) usado por el script de importación.
